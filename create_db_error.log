@@ -1,0 +1,293 @@
+
+-------
+08/30/2017 20:30:20
+-------
+
+Error executing 'INSERT INTO Train_Segment VALUES
+	(6607, 'Paris', 'Lyon', 310.00),					-- 465km / 1.5h = 310km/h
+    (6607, 'Lyon', 'Avignon', 153.33),					-- 230/1.5	
+    (6607, 'Avignon', 'Marseille', 210.00),				-- 105/0.5
+	(6650, 'Strasbourg', 'Lyon', 141.43),				-- 495km / 3.5h = 141.43km/h
+    (6650, 'Lyon', 'Avignon', 138.00),					-- 230/(1 + 2/3) (1h40)	
+    (6650, 'Avignon', 'Montpellier', 95.00),			-- 95/1
+	(6632, 'Marseille', 'Avignon', 157.50),				-- 105km / (2/3) = 157.50km/h
+    (6632, 'Avignon', 'Lyon', 138.00),					-- 230/(1 + 2/3)	
+    (6632, 'Lyon', 'Paris', 174.38);					-- 465/(2 + 2/3)
+INSERT INTO Periode VALUES
+	('bleue', 0.8),									-- - 20%
+    ('blanche', 1),									-- Inchangé
+    ('rouge', 1.3); 								-- + 30%
+INSERT INTO PlageDates VALUES
+	(date '2017-10-01', date '2017-10-01', 'blanche'),
+    (date '2017-10-07', date '2017-10-08', 'blanche'),
+    (date '2017-10-14', date '2017-10-15', 'blanche'),
+    (date '2017-10-21', date '2017-10-22', 'blanche'),
+    (date '2017-10-28', date '2017-10-31', 'rouge'),
+    (date '2017-10-02', date '2017-10-06', 'bleue'),			-- Première semaine
+    (date '2017-10-09', date '2017-10-13', 'bleue'),			-- Deuxième semaine
+    (date '2017-10-16', date '2017-10-20', 'bleue'),			-- Troisième semaine
+    (date '2017-10-23', date '2017-10-27', 'bleue');			-- Quatrième semaine
+INSERT INTO Depart VALUES
+	(time '08:00:00', 6607, 'bleue'),
+    (time '07:30:00', 6607, 'blanche'),
+    (time '08:30:00', 6607, 'rouge'),
+	(time '09:45:00', 6650, 'rouge'),
+    (time '14:00:00', 6632, 'blanche'),
+    (time '13:30:00', 6632, 'rouge') ' (line 218): Erreur de syntaxe près de 'INSERT INTO Periode VALUES
+	('bleue', 0.8),									-- - 20%
+    ('blanche', 1),' à la ligne 11
+
+-------
+08/33/2017 20:33:04
+-------
+
+Error executing 'INSERT INTO Train_Segment VALUES
+	(6607, 'Paris', 'Lyon', 310.00),					-- 465km / 1.5h = 310km/h
+    (6607, 'Lyon', 'Avignon', 153.33),					-- 230/1.5	
+    (6607, 'Avignon', 'Marseille', 210.00),				-- 105/0.5
+	(6650, 'Strasbourg', 'Lyon', 141.43),				-- 495km / 3.5h = 141.43km/h
+    (6650, 'Lyon', 'Avignon', 138.00),					-- 230/(1 + 2/3) (1h40)	
+    (6650, 'Avignon', 'Montpellier', 95.00),			-- 95/1
+	(6632, 'Marseille', 'Avignon', 157.50),				-- 105km / (2/3) = 157.50km/h
+    (6632, 'Avignon', 'Lyon', 138.00),					-- 230/(1 + 2/3)	
+    (6632, 'Lyon', 'Paris', 174.38);					-- 465/(2 + 2/3)
+INSERT INTO Periode VALUES
+	('bleue', 0.8),									-- - 20%
+    ('blanche', 1),									-- Inchangé
+    ('rouge', 1.3); 								-- + 30%
+INSERT INTO PlageDates VALUES
+	(date '2017-10-01', date '2017-10-01', 'blanche'),
+    (date '2017-10-07', date '2017-10-08', 'blanche'),
+    (date '2017-10-14', date '2017-10-15', 'blanche'),
+    (date '2017-10-21', date '2017-10-22', 'blanche'),
+    (date '2017-10-28', date '2017-10-31', 'rouge'),
+    (date '2017-10-02', date '2017-10-06', 'bleue'),			-- Première semaine
+    (date '2017-10-09', date '2017-10-13', 'bleue'),			-- Deuxième semaine
+    (date '2017-10-16', date '2017-10-20', 'bleue'),			-- Troisième semaine
+    (date '2017-10-23', date '2017-10-27', 'bleue');			-- Quatrième semaine
+INSERT INTO Depart VALUES
+	(time '08:00:00', 6607, 'bleue'),
+    (time '07:30:00', 6607, 'blanche'),
+    (time '08:30:00', 6607, 'rouge'),
+	(time '09:45:00', 6650, 'rouge'),
+    (time '14:00:00', 6632, 'blanche'),
+    (time '13:30:00', 6632, 'rouge') ' (line 218): Erreur de syntaxe près de 'INSERT INTO Periode VALUES
+	('bleue', 0.8),									-- - 20%
+    ('blanche', 1),' à la ligne 11
+
+-------
+08/51/2017 20:51:55
+-------
+
+
+-------
+08/51/2017 20:51:56
+-------
+
+
+-------
+08/51/2017 20:51:57
+-------
+
+
+-------
+08/51/2017 20:51:58
+-------
+
+
+-------
+08/51/2017 20:51:58
+-------
+
+
+-------
+08/51/2017 20:51:59
+-------
+
+
+-------
+08/52/2017 20:52:46
+-------
+
+Error executing '﻿-- 
+INSERT INTO Gare VALUES 
+	('Paris'),
+    ('Lyon'),
+    ('Avignon'),
+    ('Marseille'),
+    ('Strasbourg'),
+    ('Montpellier') ' (line 11): Erreur de syntaxe près de '?-- 
+INSERT INTO Gare VALUES 
+	('Paris'),
+    ('Lyon'),
+    ('Avignon'),
+    ('M' à la ligne 1
+
+-------
+08/53/2017 20:53:24
+-------
+
+Error executing '﻿INSERT INTO Gare VALUES 
+	('Paris'),
+    ('Lyon'),
+    ('Avignon'),
+    ('Marseille'),
+    ('Strasbourg'),
+    ('Montpellier') ' (line 7): Erreur de syntaxe près de '?INSERT INTO Gare VALUES 
+	('Paris'),
+    ('Lyon'),
+    ('Avignon'),
+    ('Marse' à la ligne 1
+
+-------
+08/54/2017 20:54:00
+-------
+
+
+-------
+08/54/2017 20:54:00
+-------
+
+Error executing '﻿INSERT INTO Gare VALUES 
+	('Paris'),
+    ('Lyon'),
+    ('Avignon'),
+    ('Marseille'),
+    ('Strasbourg'),
+    ('Montpellier') ' (line 7): Erreur de syntaxe près de '?INSERT INTO Gare VALUES 
+	('Paris'),
+    ('Lyon'),
+    ('Avignon'),
+    ('Marse' à la ligne 1
+
+-------
+08/59/2017 20:59:08
+-------
+
+Error executing 'INSERT INTO Train_Segment VALUES
+	(6607, 'Paris', 'Lyon', 310.00),					-- 465km / 1.5h = 310km/h
+    (6607, 'Lyon', 'Avignon', 153.33),					-- 230/1.5	
+    (6607, 'Avignon', 'Marseille', 210.00),				-- 105/0.5
+	(6650, 'Strasbourg', 'Lyon', 141.43),				-- 495km / 3.5h = 141.43km/h
+    (6650, 'Lyon', 'Avignon', 138.00),					-- 230/(1 + 2/3) (1h40)	
+    (6650, 'Avignon', 'Montpellier', 95.00),			-- 95/1
+	(6632, 'Marseille', 'Avignon', 157.50),				-- 105km / (2/3) = 157.50km/h
+    (6632, 'Avignon', 'Lyon', 138.00),					-- 230/(1 + 2/3)	
+    (6632, 'Lyon', 'Paris', 174.38);					-- 465/(2 + 2/3)
+INSERT INTO Periode VALUES
+	('bleue', 0.8),									-- - 20%
+    ('blanche', 1),									-- Inchangé
+    ('rouge', 1.3); 								-- + 30%
+INSERT INTO PlageDates VALUES
+	(date '2017-10-01', date '2017-10-01', 'blanche'),
+    (date '2017-10-07', date '2017-10-08', 'blanche'),
+    (date '2017-10-14', date '2017-10-15', 'blanche'),
+    (date '2017-10-21', date '2017-10-22', 'blanche'),
+    (date '2017-10-28', date '2017-10-31', 'rouge'),
+    (date '2017-10-02', date '2017-10-06', 'bleue'),			-- Première semaine
+    (date '2017-10-09', date '2017-10-13', 'bleue'),			-- Deuxième semaine
+    (date '2017-10-16', date '2017-10-20', 'bleue'),			-- Troisième semaine
+    (date '2017-10-23', date '2017-10-27', 'bleue');			-- Quatrième semaine
+INSERT INTO Depart VALUES
+	(time '08:00:00', 6607, 'bleue'),
+    (time '07:30:00', 6607, 'blanche'),
+    (time '08:30:00', 6607, 'rouge'),
+	(time '09:45:00', 6650, 'rouge'),
+    (time '14:00:00', 6632, 'blanche'),
+    (time '13:30:00', 6632, 'rouge') ' (line 218): Erreur de syntaxe près de 'INSERT INTO Periode VALUES
+	('bleue', 0.8),									-- - 20%
+    ('blanche', 1),' à la ligne 11
+
+-------
+08/01/2017 21:01:45
+-------
+
+Error executing 'INSERT INTO PlageDates VALUES
+	(date '2017-10-01', date '2017-10-01', 'blanche'),
+    (date '2017-10-07', date '2017-10-08', 'blanche'),
+    (date '2017-10-14', date '2017-10-15', 'blanche'),
+    (date '2017-10-21', date '2017-10-22', 'blanche'),
+    (date '2017-10-28', date '2017-10-31', 'rouge'),
+    (date '2017-10-02', date '2017-10-06', 'bleue'),			-- Première semaine
+    (date '2017-10-09', date '2017-10-13', 'bleue'),			-- Deuxième semaine
+    (date '2017-10-16', date '2017-10-20', 'bleue'),			-- Troisième semaine
+    (date '2017-10-23', date '2017-10-27', 'bleue');			-- Quatrième semaine
+INSERT INTO Depart VALUES
+	(time '08:00:00', 6607, 'bleue'),
+    (time '07:30:00', 6607, 'blanche'),
+    (time '08:30:00', 6607, 'rouge'),
+	(time '09:45:00', 6650, 'rouge'),
+    (time '14:00:00', 6632, 'blanche'),
+    (time '13:30:00', 6632, 'rouge') ' (line 218): Erreur de syntaxe près de 'INSERT INTO Depart VALUES
+	(time '08:00:00', 6607, 'bleue'),
+    (time '07:30:00' à la ligne 11
+
+-------
+08/02/2017 21:02:50
+-------
+
+
+-------
+08/02/2017 21:02:51
+-------
+
+
+-------
+08/02/2017 21:02:52
+-------
+
+
+-------
+08/02/2017 21:02:53
+-------
+
+
+-------
+08/02/2017 21:02:54
+-------
+
+
+-------
+08/02/2017 21:02:54
+-------
+
+
+-------
+08/05/2017 21:05:36
+-------
+
+
+-------
+08/05/2017 21:05:37
+-------
+
+
+-------
+08/05/2017 21:05:38
+-------
+
+
+-------
+08/05/2017 21:05:39
+-------
+
+
+-------
+08/05/2017 21:05:40
+-------
+
+
+-------
+08/05/2017 21:05:40
+-------
+
+
+-------
+08/18/2017 21:18:14
+-------
+
+
+-------
+08/10/2017 22:10:13
+-------
+
