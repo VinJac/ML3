@@ -9,8 +9,7 @@ CREATE TABLE Gare (
 
 CREATE TABLE Train (
 	numeroTrain INT UNSIGNED,
-    PRIMARY KEY (numeroTrain),
-    FOREIGN KEY (numeroLigne) REFERENCES Ligne(numeroLigne) ON DELETE CASCADE ON UPDATE CASCADE
+    PRIMARY KEY (numeroTrain)
 );
 
 CREATE TABLE Segment (
