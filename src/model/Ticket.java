@@ -11,14 +11,17 @@ public class Ticket {
     private final Period travelPeriod;
     private final int passengerCount;
     private final Class travelClass;
+    private final float totalPrice;
 
-    public Ticket(String departureStation, String arrivalStation, Period travelPeriod, int passengerCount, Class travelClass) {
+    public Ticket(String departureStation, String arrivalStation,
+        Period travelPeriod, int passengerCount, Class travelClass,
+        float totalPrice) {
         this.departureStation = departureStation;
         this.arrivalStation = arrivalStation;
         this.travelPeriod = travelPeriod;
         this.passengerCount = passengerCount;
         this.travelClass = travelClass;
-
+        this.totalPrice = totalPrice;
     }
 
     @Override
@@ -44,6 +47,10 @@ public class Ticket {
 
     public Class getTravelClass() {
         return travelClass;
+    }
+
+    public float getTotalPrice() {
+        return totalPrice;
     }
 
 }

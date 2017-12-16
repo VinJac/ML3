@@ -5,9 +5,8 @@ import java.util.Date;                  // Specifies Dates given below are from 
 
 import java.sql.*;                      // Provides with JDBC Classes
 
-import external.ScriptRunner;		// Provides an external script runner
-import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.File;                    // Needed for initDatabase()
+import java.io.FileInputStream;
 
 
 /**
@@ -50,25 +49,62 @@ public class DataAccess {
     	}
     }
 
-    /**
+   /**
      * Creates and populates the database according to all the examples provided
      * in the requirements of marked lab 2. If the database already exists
      * before the method is called, the method discards the database and creates
      * it again from scratch.
+     * <p>
+     * This implementation executes the SQL script named
+     * <code>database.sql</code> located in the project's root directory. It
+     * assumes the <code>DataAccess</code> class declares the connection
+     * attribute as follows:
+     * <p>
+     * <code>private Connection connection;</code>
      *
      * @throws DataAccessException if an unrecoverable error occurs
      */
     public void initDatabase() throws DataAccessException {
-    	//Executing database.sql [No autoCommit, Stop on errors]
-    	ScriptRunner runner = new ScriptRunner(connection, false, true);
+        int okCount = 0;
         try {
-            runner.runScript(new BufferedReader(new FileReader("database.sql")));
+            // read file
+            File file = new File("database.sql");
+            FileInputStream stream = new FileInputStream(file);
+            byte[] data = new byte[(int) file.length()];
+            stream.read(data);
+            stream.close();
+
+            // split contents into statements
+            String contents = new String(data);
+            String statements[] = contents.split(";");
+
+            // execute statements
+            Statement jdbc = connection.createStatement();
+            for (String statement : statements) {
+                // remove comments
+                statement = statement.replaceAll(" *-- .*(\\n|\\r)", "");
+                // remove end of lines 
+                statement = statement.replaceAll(" *(\\n|\\r)", "");
+                if (statement.isEmpty()) {
+                    continue;
+                }
+                String message = "initDatabase(): '" + statement + "': ";
+                try {
+                    jdbc.executeUpdate(statement);
+                    System.err.println(message + "ok");
+                    okCount += 1;
+                } catch (SQLException e) {
+                    System.err.println(message + "FAILED (" + e.getMessage() + ")");
+                }
+            }
+        } catch (Exception e) {
+            throw new DataAccessException(e);
         }
-        catch(Exception e) {
-            throw new DataAccessException("Error executing script : " + e.getMessage());
+        if (okCount == 0) {
+            throw new DataAccessException("failed to create database");
         }
     }
-
+    
     /**
      * See Operation 2.1.1.
      *

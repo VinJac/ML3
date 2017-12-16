@@ -15,13 +15,13 @@ public class Booking {
     private final String customer;
     private final float amount;
     private final Date date;
-    private final List<Integer> seats;
+    private final List<Seat> seats;
 
-    public Booking(String customer, float amount, Date date, List<Integer> seats) {
+    public Booking(String customer, float amount, Date date, List<Seat> seats) {
         this.customer = customer;
         this.amount = amount;
         this.date = date;
-        this.seats = new ArrayList<>(seats);
+        this.seats = new ArrayList<Seat>(seats);
     }
 
     @Override
@@ -41,7 +41,7 @@ public class Booking {
         return date;
     }
 
-    public List<Integer> getSeats() {
+    public List<Seat> getSeats() {
         return seats;
     }
 

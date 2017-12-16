@@ -1,24 +1,6 @@
--- 
--- Section 0: Database Dropping or creation 
--- 
-
 DROP DATABASE IF EXISTS ML3;
 CREATE DATABASE ML3;
 USE ML3;
-
---
--- IMPORTANT note: this script must execute without error
---
--- Change default storage engine so that
--- primary and foreign keys are enforced
--- set storage_engine = INNODB;									=> CAUSES ERRORS WITH WAMP : uncomment if wanted
-
--- 
--- Section 1: Database Schema 
--- 
--- Remarque : Certains noms de tables et d'attributs ont été modifiés afin de les rendre moins ambigüs
--- Exemple : Type -> TypeVoiture, numero de l'entité Ligne -> numeroLigne, etc.
--- Remarque : Pas de sous-ensemble d'entité dans la modélisation
 
 CREATE TABLE Gare (
 	nomGare VARCHAR(30),
