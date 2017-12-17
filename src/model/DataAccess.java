@@ -111,7 +111,7 @@ public class DataAccess {
      *
      * @param date
      *
-     * @return the corresponding period, null if this date matches with no
+     * @return the corresponding period, <code>null</code> if this date matches with no
      * period in the database
      *
      * @throws SQLException if an unrecoverable error occurs
@@ -153,7 +153,7 @@ public class DataAccess {
      * @param date
      *
      * @return the [station => datetime] mapping for the train during this day
-     * null if the train does not travel during this day
+     * <code>null</code> if the train does not travel during this day
      * @throws SQLException if an unrecoverable error occurs
      */
     private Map<String, Date> getTrainPlanning(int train, Date date)
@@ -242,7 +242,7 @@ public class DataAccess {
      * @param departureStation
      * @param arrivalStation
      *
-     * @return the corresponding list of trains, null if no train matches the journey
+     * @return the corresponding list of trains, <code>null</code> if no train matches the journey
      *
      * @throws SQLException if an unrecoverable error occurs
      */
@@ -281,7 +281,7 @@ public class DataAccess {
      * @param departureStation
      * @param arrivalStation
      * @param period
-     * @return the corresponding list of trains, null if no train matches the journey during that period
+     * @return the corresponding list of trains, <code>null</code> if no train matches the journey during that period
      *
      * @throws SQLException if an unrecoverable error occurs
      */
@@ -406,8 +406,8 @@ public class DataAccess {
      * @param train
      * @param departureStation
      * @param arrivalStation
-     * @return the corresponding distance
-     *
+     * @return the corresponding distance, <code>null</code> if
+     * some parameters were invalid
      * @throws SQLException if an unrecoverable error occurs
      */
     private Float getDistance(int train, String departureStation, String arrivalStation)
@@ -465,7 +465,7 @@ public class DataAccess {
      *
      * @throws SQLException if an unrecoverable error occurs
      */
-    public Float getPrice(String period, String travelClass, Float distance, int passengerCount)
+    private Float getPrice(String period, String travelClass, Float distance, int passengerCount)
         throws SQLException {
         
         // price by km query preparation
