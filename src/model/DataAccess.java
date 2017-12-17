@@ -9,6 +9,7 @@ import java.io.File;                    // Needed for initDatabase()
 import java.io.FileInputStream;
 
 
+
 /**
  * Provides the application with high-level methods to access the persistent
  * data store. The class hides the fact that data are stored in a RDBMS and also
@@ -25,7 +26,7 @@ import java.io.FileInputStream;
  */
 public class DataAccess {
     
-    // Private attribute representing connection to the database
+    // private attribute representing connection to the database
     private Connection connection = null;
     
     /**
@@ -105,6 +106,175 @@ public class DataAccess {
         }
     }
     
+     /**
+     * Getting the period from a given date
+     *
+     * @param date
+     *
+     * @return the corresponding period, null if this date matches with no
+     * period in the database
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private String getPeriodFromDate(Date date)
+        throws SQLException {
+        
+        // extracting year, month and day from the given year
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        int year = cal.get(Calendar.YEAR);
+        int month = cal.get(Calendar.MONTH) + 1;        // 0 => 11 otherwise
+        int day = cal.get(Calendar.DAY_OF_MONTH);
+        
+        // query preparation
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT couleurPeriode "
+                + "FROM PlageDates "
+                + "WHERE (? >= YEAR(debut) AND ? >= MONTH(debut) AND ? >= DAY(debut)) AND "
+                + "(? <= YEAR(fin) AND ? <= MONTH(fin) AND ? <= DAY(fin))");
+        st.setInt(1, year); 
+        st.setInt(2, month); 
+        st.setInt(3, day); 
+        st.setInt(4, year); 
+        st.setInt(5, month); 
+        st.setInt(6, day); 
+        
+        // query execution
+        ResultSet result = st.executeQuery();
+        
+        // returns the period if any was found, null otherwise
+        return (result.next()) ? result.getString(1) : null; 
+    }
+    
+     /**
+     * Getting a train's planning during the given DAY
+     *
+     * @param train
+     * @param date
+     *
+     * @return the [station => datetime] mapping for the train during this day
+     * null if the train does not travel during this day
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private Map<String, Date> getTrainPlanning(int train, Date date)
+        throws SQLException {
+        
+        // the planning to return
+        Map<String, Date> planning = new HashMap<String, Date>();
+        
+        // getting the corresponding period
+        String period = getPeriodFromDate(date);
+        
+        // query preparation (rk: we only store one segment for both directions)
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT TS.gareDepart, TS.gareArrivee, vitesse, rang, S.longueur, horaire "
+                + "FROM (Train_Segment TS NATURAL JOIN Depart) JOIN Segment S ON "
+                + "(TS.gareDepart = S.gareDepart AND TS.gareArrivee = S.gareArrivee) OR "
+                + "(TS.gareDepart = S.gareArrivee AND TS.gareArrivee = S.gareDepart) "
+                + "WHERE numeroTrain = ? AND "
+                + "couleurPeriode = ? "
+                + "ORDER BY rang");   
+        st.setInt(1, train);
+        st.setString(2, period);
+        
+        // query execution
+        ResultSet result = st.executeQuery();
+        
+        // constructing the initial station (returns null if result is empty)
+        if(!result.next())
+            return null;
+        
+        // main calendar to store the complete dates of station serving
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        
+        // calendar only representing time (because Time class is deprecated)
+        Calendar time = Calendar.getInstance();
+        time.setTime(result.getTime(6, cal));                   // initial time, "horaire" field
+        
+        // applying the initial TIME to the given DAY
+        cal.set(Calendar.HOUR, time.get(Calendar.HOUR_OF_DAY)); 
+        cal.set(Calendar.MINUTE, time.get(Calendar.MINUTE)); 
+        cal.set(Calendar.SECOND, time.get(Calendar.SECOND)); 
+        
+        // declaration of the loop variables
+        String depStation = result.getString(1);        // departureStation
+        String arrStation = null;                       // arrivalStation
+        double speed = 0.0d, distance = 0.0d;
+        double addedRawHours = 0.0d;
+        int addedHours, addedMinutes, addedSeconds;
+        
+        // we already know the data for the first station
+        planning.put(depStation, cal.getTime());
+        
+        do {
+            /// adding the arrival station to the planning
+            // getting the name of the segment's arrival station
+            arrStation = result.getString(2);
+            
+            // computing the added time to reach the station
+            speed = result.getDouble(3);
+            distance = result.getDouble(5);
+            
+            addedRawHours = distance/speed;                                 // t = d/v => X.XXXX hours
+            
+            // conversion into time and addition to the previous date
+            addedHours = (int)addedRawHours;
+            // Decimal part of hours x 60, int truncated
+            addedMinutes = (int)((addedRawHours - (double)addedHours)*60); 
+            // Decimal part of minutes x 60, rounded this time because we have no more precision
+            addedSeconds = (int)Math.round((((addedRawHours - (double)addedHours)*60) - (double)addedMinutes)*60);
+            
+            cal.add(Calendar.HOUR_OF_DAY, addedHours);
+            cal.add(Calendar.MINUTE, addedMinutes);
+            cal.add(Calendar.SECOND, addedSeconds);
+               
+            planning.put(arrStation, cal.getTime());
+            
+        }while(result.next());                                      // Leaving or going on to the next segment             
+        
+        return planning;
+    }
+    
+     /**
+     * Getting the list of trains matching a given journey
+     *
+     * @param departureStation
+     * @param arrivalStation
+     *
+     * @return the corresponding list of trains, null if no train matches the journey
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private List<Integer> getTrainsMatchingJourney(String departureStation, String arrivalStation)
+        throws SQLException {
+        
+        // the list to return
+        List<Integer> trains = new ArrayList<Integer>();
+        
+        // query preparation
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT T1.numeroTrain "
+                + "FROM Train_Segment T1 JOIN Train_Segment T2 ON "
+                + "T1.numeroTrain = T2.numeroTrain "
+                + "WHERE T1.gareDepart = ? AND T2.gareArrivee = ? AND "
+                + "T1.rang <= T2.rang");
+        st.setString(1, departureStation);
+        st.setString(2, arrivalStation);
+        
+        // query execution
+        ResultSet result = st.executeQuery();
+        
+        // returning the mathcing trains, null if none
+        if(!result.next())
+            return null;
+        do {
+            trains.add(result.getInt(1));                   // autoboxing int => Integer
+        }while(result.next());
+        
+        return trains;
+    }
+    
     /**
      * See Operation 2.1.1.
      *
@@ -120,7 +290,73 @@ public class DataAccess {
      */
     public List<Journey> getTrainTimes(String departureStation, String arrivalStation, Date fromDate, Date toDate)
         throws DataAccessException {
-        return null;
+        
+        // the list to return
+        List<Journey> journeys = new ArrayList<Journey>();
+        
+        // the journey to add
+        Journey journey = null; 
+        
+        // planning of the current train during the current day
+        Map<String, Date> trainPlanning = null; 
+        
+        // dates manipulation
+        Calendar start = Calendar.getInstance();
+        Calendar end = Calendar.getInstance();
+        start.setTime(fromDate);
+        end.setTime(toDate);
+        
+        // we need to loop over the DAYS, so we set the same times for the calendars
+        start.set(Calendar.HOUR_OF_DAY, 1); 
+        start.set(Calendar.MINUTE, 1);
+        start.set(Calendar.SECOND, 1); 
+        end.set(Calendar.HOUR_OF_DAY, 1); 
+        end.set(Calendar.MINUTE, 1);
+        end.set(Calendar.SECOND, 1); 
+        
+        // encapsulate data queries into an ACID transaction 
+        try {
+            connection.setAutoCommit(false);
+            connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            
+            // getting the trains that match the stations (in the right order)
+            List<Integer> trains = getTrainsMatchingJourney(departureStation, arrivalStation); 
+            if(trains == null) {
+                // no train in the database matches the stations
+                connection.commit();
+                return journeys;
+            }
+                
+            // for each given day
+            Date date = start.getTime();
+            while(!start.after(end))
+            {
+                for(Integer train : trains) {
+                   trainPlanning = getTrainPlanning(train, date);
+                   if(trainPlanning != null) {
+                       // if the departure is after the full fromDate and arrival before the full toDate, keep the journey
+                        if(trainPlanning.get(departureStation).after(fromDate) && trainPlanning.get(arrivalStation).before(toDate))
+                            journeys.add(new Journey(departureStation, arrivalStation, train, trainPlanning.get(departureStation), trainPlanning.get(arrivalStation)));
+                   }
+                }
+                // adding a day to the starting date
+                start.add(Calendar.DATE, 1);
+                date = start.getTime();
+            }
+            // committing the transaction - next transaction will start after the next SQL statement
+            connection.commit();
+        }
+        catch(SQLException e) {
+            // making sure the transaction is aborted
+            try {
+                connection.rollback();
+            }
+            catch (SQLException ee) {
+                throw new DataAccessException("Failing rollbacking transaction in 2.1.1: " + ee.getMessage());
+            }
+            throw new DataAccessException("Error occured in 2.1.1: " + e.getMessage());
+        }
+        return journeys; 
     }
 
     /**
