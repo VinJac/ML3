@@ -275,6 +275,47 @@ public class DataAccess {
         return trains;
     }
     
+     /**
+     * Getting the list of trains matching a given journey during a given period
+     *
+     * @param departureStation
+     * @param arrivalStation
+     * @param period
+     * @return the corresponding list of trains, null if no train matches the journey during that period
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private List<Integer> getTrainsMatchingJourney(String departureStation, String arrivalStation, String period)
+        throws SQLException {
+        
+        // the list to return
+        List<Integer> trains = new ArrayList<Integer>();
+        
+        // query preparation: only the trains that match stations during the specified period
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT T1.numeroTrain "
+                + "FROM (Train_Segment T1 JOIN Train_Segment T2 ON "
+                + "T1.numeroTrain = T2.numeroTrain) JOIN Depart ON Depart.numeroTrain = T1.numeroTrain "
+                + "WHERE T1.gareDepart = ? AND T2.gareArrivee = ? AND "
+                + "T1.rang <= T2.rang AND "
+                + "couleurPeriode = ?");
+        st.setString(1, departureStation);
+        st.setString(2, arrivalStation);
+        st.setString(3, period);
+        
+        // query execution
+        ResultSet result = st.executeQuery();
+        
+        // returning the mathcing trains, null if none
+        if(!result.next())
+            return null;
+        do {
+            trains.add(result.getInt(1));                   // autoboxing int => Integer
+        }while(result.next());
+        
+        return trains;
+    }
+    
     /**
      * See Operation 2.1.1.
      *
@@ -359,6 +400,103 @@ public class DataAccess {
         return journeys; 
     }
 
+     /**
+     * Getting the distance (in km) between two stations crossed by a train
+     *
+     * @param train
+     * @param departureStation
+     * @param arrivalStation
+     * @return the corresponding distance
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private Float getDistance(int train, String departureStation, String arrivalStation)
+        throws SQLException {
+        
+        // the train has to travel to the passed stations
+        if(!getTrainsMatchingJourney(departureStation, arrivalStation).contains(train))
+            return null;
+        
+        // the distance to return
+        Float distance = new Float(0.0f);
+        
+        // query preparation
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT TS.gareDepart, TS.gareArrivee, S.longueur "
+                + "FROM Train_Segment TS JOIN Segment S ON "
+                + "(TS.gareDepart = S.gareDepart AND TS.gareArrivee = S.gareArrivee) OR "
+                + "(TS.gareDepart = S.gareArrivee AND TS.gareArrivee = S.gareDepart) "
+                + "WHERE TS.numeroTrain = ? "
+                + "ORDER BY TS.rang");
+        st.setInt(1, train);
+        
+        // query execution
+        ResultSet result = st.executeQuery();
+        
+        // if unknown train return null
+        if(!result.next())
+            return null;
+        
+        // wait for the departure station to come in the list of segments
+        do {
+            if(result.getString(1).equals(departureStation))
+                break; 
+        }while(result.next());
+        
+        // we can now begin to increase the distance
+        do {
+            distance += result.getFloat(3);                         // add the segment length to global distance
+            if(result.getString(2).equals(arrivalStation))          // break loop if we arrived
+                break;
+        }while(result.next());
+        
+        return distance;
+    }
+
+     /**
+     * Getting the total price of a train ticket (without reservation)
+     *
+     * @param period
+     * @param travelClass
+     * @param distance
+     * @param passengerCount
+     * 
+     * @return the corresponding ticket price
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    public Float getPrice(String period, String travelClass, Float distance, int passengerCount)
+        throws SQLException {
+        
+        // price by km query preparation
+        PreparedStatement stPriceKm = connection.prepareStatement(""
+                + "SELECT prixAuKm "
+                + "FROM Classe "
+                + "WHERE nomClasse = ?");
+        stPriceKm.setString(1, travelClass);
+
+        // price variation query preparation
+        PreparedStatement stPriceVar = connection.prepareStatement(""
+                + "SELECT variationTarif "
+                + "FROM Periode "
+                + "WHERE couleurPeriode = ?");
+        stPriceVar.setString(1, period);
+        
+        // queries execution
+        ResultSet resKm = stPriceKm.executeQuery();
+        ResultSet resVar = stPriceVar.executeQuery();
+        
+        if(!resKm.next() || !resVar.next())
+            return null;
+       
+        // compute the price
+        Float price = new Float((float)passengerCount * distance * resKm.getFloat(1) * resVar.getFloat(1));
+        
+        // round the price to 2 decimals: no half cent
+        price = Math.round(price * 100.0f)/100.0f; 
+        return price;
+    }
+    
     /**
      * See Operation 2.1.2
      *
@@ -375,6 +513,70 @@ public class DataAccess {
      */
     public Ticket buyTicket(String departureStation, String arrivalStation, Period travelPeriod, int passengerCount, Class travelClass)
         throws DataAccessException {
+       
+        Float distance = 0.0f;
+        Float price = 0.0f;
+        
+        // period conversion
+        String period;
+        switch(travelPeriod) {
+            case BLUE: period = "bleue";
+            break;
+            case WHITE: period = "blanche";
+            break;
+            case RED: period = "rouge";
+            break;
+            default: period = null;    
+        }
+        // class conversion
+        String tClass;
+        switch(travelClass) {
+            case FIRST: tClass = "premiere";
+            break;
+            case SECOND: tClass = "seconde";
+            break;
+            default: tClass = null;
+        }
+
+        // if invalid period or class (not likely because of the enum) return null
+        if(period == null || tClass == null)
+            return null;
+        
+        // encapsulate data queries into an ACID transaction 
+        try {
+            connection.setAutoCommit(false);
+            connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            
+            // we first check that the wanted journey (stations + period) is possible with available trains
+            List<Integer> trains = getTrainsMatchingJourney(departureStation, arrivalStation, period); 
+            if(trains == null) {
+                // no train in the database matches the ticket
+                connection.commit();
+                return null;
+            }
+            
+            // compute the distance separating the stations, using one of the matching trains
+            distance = getDistance(trains.get(0), departureStation, arrivalStation);
+            
+            // compute the final price of the ticket, giving it all necessary data
+            price = getPrice(period, tClass, distance, passengerCount);
+            
+            // committing the transaction - next transaction will start after the next SQL statement
+            connection.commit();
+            if(distance != null && price != null) {
+                return new Ticket(departureStation, arrivalStation, travelPeriod, passengerCount, travelClass, price);
+            }
+        }
+        catch(SQLException e) {
+            // making sure the transaction is aborted
+            try {
+                connection.rollback();
+            }
+            catch (SQLException ee) {
+                throw new DataAccessException("Failing rollbacking transaction in 2.1.2: " + ee.getMessage());
+            }
+            throw new DataAccessException("Error occured in 2.1.2: " + e.getMessage());
+        }
         return null;
     }
 

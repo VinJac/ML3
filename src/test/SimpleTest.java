@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
-import model.DataAccess;
+import model.*;
 
 /**
  * A simple test program for {@link DataAccess}.
@@ -109,10 +109,51 @@ public class SimpleTest {
         // NOTE: the tests below throw an NullPointerException because the methods
         // are not implemented yet
         // 
-        check("getAvailableSeats", 
-            data.getAvailableSeats(6607, dateFormat.parse("2017-10-29 00:00:00"), "Lyon", "Avignon").size() == 1093);
-
-
+        //check("getAvailableSeats", 
+          //  data.getAvailableSeats(6607, dateFormat.parse("2017-10-29 00:00:00"), "Lyon", "Avignon").size() == 1093);
+        
+        //System.out.println("PERIOD: " + data.getPeriodFromDate(dateFormat.parse("2017-10-18 00:00:00")));
+        /*Map<String, Date> planning = data.getTrainPlanning(6632, dateFormat.parse("2017-10-31 01:00:00"));
+        if(planning == null)
+            System.out.println("NULL Planning");
+        else {
+             for(String key : planning.keySet())
+             {
+                 System.out.println(key + " => " + planning.get(key));
+             }      
+        }*/
+        /*List<Journey> journeys = data.getTrainTimes("Lyon", "Avignon", dateFormat.parse("2017-10-28 11:00:00"), dateFormat.parse("2017-10-31 12:00:00"));
+        for(Journey journey : journeys)
+        {
+            System.out.println(journey);
+        }*/
+        
+        /*List<Integer> trains = data.getTrainsMatchingJourney("Marseille", "Lyon", "blanche"); 
+        if(trains != null) {
+            for(Integer train : trains)
+            {
+                System.out.println(train);
+            }     
+        } else {
+            System.out.println("NO TRAIN");
+        }*/
+        
+        /*Float distance = data.getDistance(6632, "Marseille", "Paris");
+        if(distance != null)
+            System.out.println("Distance: " + distance + "km");
+        else
+            System.out.println("No distance");*/
+        /*Float price = data.getPrice("blanche", "premiere", 223f, 1);
+        if(price != null)
+            System.out.println("Price: " + price + "€");
+        else
+            System.out.println("No price");*/
+        /*Ticket ticket = data.buyTicket("Marseille", "Lyon", Period.WHITE, 2, model.Class.FIRST); 
+        if(ticket == null)
+            System.out.println("No ticket");
+        else
+            System.out.println(ticket);*/
+        
         // TODO complete the test
     }
 
@@ -145,7 +186,7 @@ public class SimpleTest {
 
             // execute single-user tests
             System.out.println("Running single-user tests...");
-            //singleUserTests(data, "single user");
+            singleUserTests(data, "single user");
 
             // execute multi-users tests
             System.out.println("Running multi-users tests...");
