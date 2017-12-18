@@ -598,8 +598,109 @@ public class DataAccess {
      */
     public Booking buyTicketAndBook(int trainNumber, Date departureDate, String departureStation, String arrivalStation, int passengerCount, Class travelClass, String customerEmail)
         throws DataAccessException {
-        // TODO
-        return null;
+        
+        List<Seat> availableSeats = null; 
+        List<Seat> bookedSeats = null;
+        Booking booking = null;
+        
+        // class conversion
+        String tClass;
+        switch(travelClass) {
+            case FIRST: tClass = "premiere";
+            break;
+            case SECOND: tClass = "seconde";
+            break;
+            default: tClass = null;
+        }
+        if(tClass == null)                              // invalid class
+            return null;
+        
+        // encapsulate data queries into an ACID transaction 
+        try {
+            connection.setAutoCommit(false);
+            connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            
+            // we first get the planning of the train during this day to verify if the specified date is correct
+            Map<String, Date> planning = getTrainPlanning(trainNumber, departureDate);
+            if(planning == null) {
+                // this train doesn't travel during this day
+                connection.commit();
+                return null;                
+            }
+            if(!(planning.get(departureStation).equals(departureDate)) || !(planning.containsKey(arrivalStation))) {
+               // the date is incorrect or the journey is not served by the train 
+                connection.commit();
+                return null;   
+            }
+            
+            // get the available seats for that train, section, date and class
+            availableSeats = getAvailableSeats(trainNumber, departureDate, departureStation, arrivalStation, tClass); 
+            
+            // the number of available seats must be greater or equal to the number of people
+            if(availableSeats.size() < passengerCount)
+                return null;
+            
+            // period conversion
+            Period travelPeriod = null;
+            String period = getPeriodFromDate(departureDate);
+            switch(period) {
+                case "bleue" : travelPeriod = Period.BLUE; 
+                break;
+                case "rouge" : travelPeriod = Period.RED; 
+                break;
+                case "blanche" : travelPeriod = Period.WHITE; 
+                break;
+                default: travelPeriod = null;
+            }            
+            
+            // compute booking total price (ticket + extra booking price)
+            Ticket ticket = buyTicket(departureStation, arrivalStation, travelPeriod, passengerCount, travelClass);
+            float bookingPrice = ticket.getTotalPrice() + (float)(20*passengerCount);
+            
+            // book the seats
+            bookedSeats = bookSeats(passengerCount, availableSeats);
+            
+            // create booking (that has been created now)
+            Calendar cal = Calendar.getInstance();
+            booking = new Booking(customerEmail, bookingPrice, cal.getTime(), bookedSeats);
+            
+            // storing modifications in the database
+            //String bookingID = saveBooking(booking, departureDate, departureStation, arrivalStation);
+            //saveBookedSeats(trainNumber, bookedSeats, period, bookingID);
+            
+        }
+        catch(SQLException e) {
+            // making sure the transaction is aborted
+            try {
+                connection.rollback();
+            }
+            catch (SQLException ee) {
+                throw new DataAccessException("Failing rollbacking transaction in 2.1.3: " + ee.getMessage());
+            }
+            throw new DataAccessException("Error occured in 2.1.3: " + e.getMessage());
+        }
+        return booking;
+    }
+    
+     /**
+     * Returning the "seatsNumber" first available seats to book
+     * 
+     * @param seatsNumber
+     * @param availableSeats
+     * 
+     * @return the seats to book
+     * 
+     * /!\ NO COHERENCE TEST. HAS TO BE DONE BEFORE CALLING THE METHOD
+     */
+    private List<Seat> bookSeats(int seatsNumber, List<Seat> availableSeats) {
+        
+        // the list to return
+        List<Seat> seats = new ArrayList<Seat>();
+        
+        for(int i = 0; i < seatsNumber; i++) {
+            seats.add(availableSeats.get(i));
+        }
+        return seats;
     }
 
     /**
@@ -761,6 +862,54 @@ public class DataAccess {
         return seats;
     }
 
+     /**
+     * Getting all the seats owned by the specified train during the specified period
+     * Note: in this version we only want the seats in cars of the specified class
+     * @param train
+     * @param period
+     * @param travelClass
+     * 
+     * @return the corresponding seats, an empty list if the train does not travel in this period
+     * 
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    public List<Seat> getSeats(Integer train, String period, String travelClass)
+        throws SQLException {
+        
+        // the list to return
+        List<Seat> seats = new ArrayList<Seat>();
+        
+        // query preparation
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT numeroVoiture, numPlaceMin, numPlaceMax "
+                + "FROM Voiture NATURAL JOIN TypeVoiture "
+                + "WHERE numeroTrain = ? AND "
+                + "couleurPeriode = ? AND "
+                + "nomClasse = ? "
+                + "ORDER BY numeroVoiture"); 
+        
+        // parameters assignments
+        st.setInt(1, train);
+        st.setString(2, period);
+        st.setString(3, travelClass);
+        
+        // query execution
+        ResultSet result = st.executeQuery();
+        
+        // compute the list of seats
+        while(result.next()) {
+            // we have null values for min and max in double bars
+            result.getInt(2);
+            if(!result.wasNull()) {     // if there was a minimum seat number
+                for(int i = result.getInt(2); i <= result.getInt(3); i++) {          // from min to max
+                    seats.add(new Seat(result.getInt(1), i)); 
+                }    
+            }
+        }
+        
+        return seats;
+    }
+    
     /**
      * See Operation 2.2.2
      *
@@ -809,9 +958,65 @@ public class DataAccess {
                 connection.rollback();
             }
             catch (SQLException ee) {
-                throw new DataAccessException("Failing rollbacking transaction in 2.1.2: " + ee.getMessage());
+                throw new DataAccessException("Failing rollbacking transaction in 2.2.2: " + ee.getMessage());
             }
-            throw new DataAccessException("Error occured in 2.1.2: " + e.getMessage());
+            throw new DataAccessException("Error occured in 2.2.2: " + e.getMessage());
+        }
+        return availableSeats;
+    }
+    
+    /**
+     * get the available seats in the specified class
+     * (overloading 2.2.2 in order not to modify DataAccess' interface)
+     * @param trainNumber
+     * @param departureDate
+     * @param beginStation
+     * @param endStation
+     * @param travelClass
+     *
+     * @return the list of available seats, including the empty list if no seat
+     * is available
+     *
+     * @throws DataAccessException if an unrecoverable error occurs
+     */
+    private List<Seat> getAvailableSeats(int trainNumber, Date departureDate, String beginStation, String endStation, String travelClass)
+        throws DataAccessException {
+        
+        // the list to return
+        List<Seat> availableSeats = new ArrayList<Seat>();
+        
+        // temporary list of the UNavailable seats
+        List<Seat> unavailableSeats = new ArrayList<Seat>();
+        
+        // encapsulate data queries into an ACID transaction 
+        try {
+            connection.setAutoCommit(false);
+            connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            
+            // we first check that the wanted journey (stations + period) is possible with the given train
+            List<Integer> trains = getTrainsMatchingJourney(beginStation, endStation, getPeriodFromDate(departureDate)); 
+            if(trains == null || !trains.contains(trainNumber)) {
+                // this train doesn't match the journey
+                connection.commit();
+                return availableSeats;
+            }
+            
+            // get the total seats of the train during the period MATCHING THE RIGHT class
+            availableSeats = getSeats(trainNumber, getPeriodFromDate(departureDate), travelClass);
+            // then the unavailable seat during this day and between the two specified stations
+            unavailableSeats = getUnavailableSeats(trainNumber, departureDate, beginStation, endStation);           
+            // the available seats are the total ones minus the unavailable ones
+            availableSeats.removeAll(unavailableSeats);  
+        }
+        catch(SQLException e) {
+            // making sure the transaction is aborted
+            try {
+                connection.rollback();
+            }
+            catch (SQLException ee) {
+                throw new DataAccessException("Failing rollbacking transaction in 2.2.2: " + ee.getMessage());
+            }
+            throw new DataAccessException("Error occured in 2.2.2: " + e.getMessage());
         }
         return availableSeats;
     }
@@ -829,7 +1034,7 @@ public class DataAccess {
     		connection.close();
     	}
     	catch(SQLException e) {
-    		throw new DataAccessException("Error closing connection : " + e.getMessage());
+    		throw new DataAccessException("Error closing connection: " + e.getMessage());
     	}
     }
 }
