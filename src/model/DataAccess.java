@@ -618,6 +618,101 @@ public class DataAccess {
         // TODO
         return false;
     }
+    
+     /**
+     * Getting the rank of the segment starting from or arriving at station in the specified train journey
+     *
+     * @param train
+     * @param station
+     * @param startingFrom
+     * 
+     * @return the corresponding segment rank, <code>null</code> if no matching segment
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private Integer getSegmentNumber(Integer train, String station, boolean startingFrom)
+        throws SQLException {
+        
+        PreparedStatement st = null;
+        
+        // getting the corresponding rank
+        st = connection.prepareStatement(""
+            + "SELECT rang "
+            + "FROM Train_Segment "
+            + "WHERE numeroTrain = ? "
+            + "AND " + (startingFrom ? "gareDepart" : "gareArrivee") + "= ?");  
+        st.setInt(1, train);
+        st.setString(2, station);
+        
+        ResultSet result = st.executeQuery();
+        
+        return (result.next() ? result.getInt(1) : null);
+    }
+    
+     /**
+     * Getting the UNavailable seats in the specified train during the spercified day and
+     * between the two specified stations
+     *
+     * @param train
+     * @param date
+     * @param beginStation
+     * @param endStation
+     * 
+     * @return the corresponding seats, an empty list if all seats are available
+     * 
+     * /!\ DOESN'T TEST INPUT INFORMATION COHERENCE - test before calling it
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private List<Seat> getUnavailableSeats(Integer train, Date date, String beginStation, String endStation)
+        throws SQLException {
+        
+        // the list to return
+        List<Seat> seats = new ArrayList<Seat>();
+        
+        // decomposing the date in order to match util.Date with dates in SQL
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        int year = cal.get(Calendar.YEAR);
+        int month = cal.get(Calendar.MONTH) + 1;        // 0 => 11 otherwise
+        int day = cal.get(Calendar.DAY_OF_MONTH);
+        
+        // query preparation
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT numeroVoiture, numeroPlace "
+                + "FROM PlaceReservee NATURAL JOIN Reservation R "
+                + "WHERE numeroTrain = ? AND "
+                + "YEAR(dateHeureDepart) = ? AND "
+                + "MONTH(dateHeureDepart) = ? AND "
+                + "DAY(dateHeureDepart) = ? AND "
+                + "NOT ((? < (SELECT rang FROM Train_Segment TS WHERE TS.gareDepart = R.gareDepart AND numeroTrain = ?) AND "
+                + "? < (SELECT rang FROM Train_Segment TS WHERE TS.gareDepart = R.gareDepart AND numeroTrain = ?)) OR "
+                + "(? > (SELECT rang FROM Train_Segment TS WHERE TS.gareArrivee = R.gareArrivee AND numeroTrain = ?) AND "
+                + "? > (SELECT rang FROM Train_Segment TS WHERE TS.gareArrivee = R.gareArrivee AND numeroTrain = ?)))"); 
+        
+        // parameters assignments
+        st.setInt(1, train);
+        st.setInt(2, year);
+        st.setInt(3, month);
+        st.setInt(4, day);
+        
+        st.setInt(5, getSegmentNumber(train, beginStation, true));          // segment starting from begin
+        st.setInt(6, train);
+        st.setInt(7, getSegmentNumber(train, endStation, false));           // segment ending to end
+        st.setInt(8, train);
+        st.setInt(9, getSegmentNumber(train, beginStation, true));          // segment starting from begin 
+        st.setInt(10, train);
+        st.setInt(11, getSegmentNumber(train, endStation, false));          // segment ending to end                
+        st.setInt(12, train);
+        
+        ResultSet result = st.executeQuery();
+        
+        while(result.next()) {
+            seats.add(new Seat(result.getInt(1), result.getInt(2))); 
+        }
+        
+        return seats;
+    }
 
     /**
      * See Operation 2.2.2
@@ -632,9 +727,47 @@ public class DataAccess {
      *
      * @throws DataAccessException if an unrecoverable error occurs
      */
-    public List<Integer> getAvailableSeats(int trainNumber, Date departureDate, String beginStation, String endStation)
+    public List<Seat> getAvailableSeats(int trainNumber, Date departureDate, String beginStation, String endStation)
         throws DataAccessException {
-        // TODO
+        
+        // the list to return
+        List<Seat> availableSeats = new ArrayList<Seat>();
+        
+        // encapsulate data queries into an ACID transaction 
+        try {
+            connection.setAutoCommit(false);
+            connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            
+            // we first check that the wanted journey (stations + period) is possible with the given train
+            List<Integer> trains = getTrainsMatchingJourney(beginStation, endStation, getPeriodFromDate(departureDate)); 
+            if(trains == null || !trains.contains(trainNumber)) {
+                // this train doesn't match the journey
+                connection.commit();
+                return availableSeats;
+            }
+            
+            // compute the distance separating the stations, using one of the matching trains
+           /* distance = getDistance(trains.get(0), departureStation, arrivalStation);
+            
+            // compute the final price of the ticket, giving it all necessary data
+            price = getPrice(period, tClass, distance, passengerCount);
+            
+            // committing the transaction - next transaction will start after the next SQL statement
+            connection.commit();
+            if(distance != null && price != null) {
+                return new Ticket(departureStation, arrivalStation, travelPeriod, passengerCount, travelClass, price);
+            }*/
+        }
+        catch(SQLException e) {
+            // making sure the transaction is aborted
+            try {
+                connection.rollback();
+            }
+            catch (SQLException ee) {
+                throw new DataAccessException("Failing rollbacking transaction in 2.1.2: " + ee.getMessage());
+            }
+            throw new DataAccessException("Error occured in 2.1.2: " + e.getMessage());
+        }
         return null;
     }
 
