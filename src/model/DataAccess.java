@@ -650,7 +650,7 @@ public class DataAccess {
     }
     
      /**
-     * Getting the UNavailable seats in the specified train during the spercified day and
+     * Getting the UNavailable seats in the specified train during the specified day and
      * between the two specified stations
      *
      * @param train
@@ -705,10 +705,57 @@ public class DataAccess {
         st.setInt(11, getSegmentNumber(train, endStation, false));          // segment ending to end                
         st.setInt(12, train);
         
+        // query execution and return of the result
         ResultSet result = st.executeQuery();
         
         while(result.next()) {
             seats.add(new Seat(result.getInt(1), result.getInt(2))); 
+        }
+        
+        return seats;
+    }
+    
+     /**
+     * Getting all the seats owned by the specified train during the specified period
+     *
+     * @param train
+     * @param period
+     * 
+     * @return the corresponding seats, an empty list if the train does not travel in this period
+     * 
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private List<Seat> getSeats(Integer train, String period)
+        throws SQLException {
+        
+        // the list to return
+        List<Seat> seats = new ArrayList<Seat>();
+        
+        // query preparation
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT numeroVoiture, numPlaceMin, numPlaceMax "
+                + "FROM Voiture NATURAL JOIN TypeVoiture "
+                + "WHERE numeroTrain = ? AND "
+                + "couleurPeriode = ? "
+                + "ORDER BY numeroVoiture"); 
+        
+        // parameters assignments
+        st.setInt(1, train);
+        st.setString(2, period);
+        
+        // query execution
+        ResultSet result = st.executeQuery();
+        
+        // compute the list of seats
+        while(result.next()) {
+            // we have null values for min and max in double bars
+            result.getInt(2);
+            if(!result.wasNull()) {     // if there was a minimum seat number
+                for(int i = result.getInt(2); i <= result.getInt(3); i++) {          // from min to max
+                    seats.add(new Seat(result.getInt(1), i)); 
+                }    
+            }
         }
         
         return seats;
@@ -733,6 +780,9 @@ public class DataAccess {
         // the list to return
         List<Seat> availableSeats = new ArrayList<Seat>();
         
+        // temporary list of the UNavailable seats
+        List<Seat> unavailableSeats = new ArrayList<Seat>();
+        
         // encapsulate data queries into an ACID transaction 
         try {
             connection.setAutoCommit(false);
@@ -746,17 +796,12 @@ public class DataAccess {
                 return availableSeats;
             }
             
-            // compute the distance separating the stations, using one of the matching trains
-           /* distance = getDistance(trains.get(0), departureStation, arrivalStation);
-            
-            // compute the final price of the ticket, giving it all necessary data
-            price = getPrice(period, tClass, distance, passengerCount);
-            
-            // committing the transaction - next transaction will start after the next SQL statement
-            connection.commit();
-            if(distance != null && price != null) {
-                return new Ticket(departureStation, arrivalStation, travelPeriod, passengerCount, travelClass, price);
-            }*/
+            // now that we know the journey is possible: get the total seats of the train during the period
+            availableSeats = getSeats(trainNumber, getPeriodFromDate(departureDate));
+            // then the unavailable seat during this day and between the two specified stations
+            unavailableSeats = getUnavailableSeats(trainNumber, departureDate, beginStation, endStation);           
+            // the available seats are the total ones minus the unavailable ones
+            availableSeats.removeAll(unavailableSeats);  
         }
         catch(SQLException e) {
             // making sure the transaction is aborted
@@ -768,7 +813,7 @@ public class DataAccess {
             }
             throw new DataAccessException("Error occured in 2.1.2: " + e.getMessage());
         }
-        return null;
+        return availableSeats;
     }
 
     /**
