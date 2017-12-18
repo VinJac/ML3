@@ -187,6 +187,11 @@ public class DataAccess {
         // main calendar to store the complete dates of station serving
         Calendar cal = Calendar.getInstance();
         cal.setTime(date);
+        // we don't want the given time to influence the planning
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.getTime();
         
         // calendar only representing time (because Time class is deprecated)
         Calendar time = Calendar.getInstance();
@@ -513,7 +518,10 @@ public class DataAccess {
      */
     public Ticket buyTicket(String departureStation, String arrivalStation, Period travelPeriod, int passengerCount, Class travelClass)
         throws DataAccessException {
-       
+
+        if(passengerCount <= 0)             // invalid number of people
+            return null;
+        
         Float distance = 0.0f;
         Float price = 0.0f;
         
@@ -599,6 +607,9 @@ public class DataAccess {
     public Booking buyTicketAndBook(int trainNumber, Date departureDate, String departureStation, String arrivalStation, int passengerCount, Class travelClass, String customerEmail)
         throws DataAccessException {
         
+        if(passengerCount <= 0)             // invalid number of people
+            return null;
+        
         List<Seat> availableSeats = null; 
         List<Seat> bookedSeats = null;
         Booking booking = null;
@@ -665,8 +676,8 @@ public class DataAccess {
             booking = new Booking(customerEmail, bookingPrice, cal.getTime(), bookedSeats);
             
             // storing modifications in the database
-            //String bookingID = saveBooking(booking, departureDate, departureStation, arrivalStation);
-            //saveBookedSeats(trainNumber, bookedSeats, period, bookingID);
+            String bookingID = saveBooking(booking, departureDate, departureStation, arrivalStation);
+            saveBookedSeats(trainNumber, bookedSeats, period, bookingID);
             
         }
         catch(SQLException e) {
@@ -702,7 +713,94 @@ public class DataAccess {
         }
         return seats;
     }
+    
+     /**
+     * Saving a booking into the database
+     *
+     * @param booking
+     * @param departureDate
+     * @param departureStation
+     * @param arrivalStation
+     * 
+     * @return the corresponding booking ID
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private String saveBooking(Booking booking, Date departureDate, String departureStation, String arrivalStation)
+        throws SQLException {
+        
+        // the booking ID to return
+        String bookingID = null;
+        
+        ResultSet result = null;
+        char[] randomLetters = new char[6];
+        
+        // statement in order to check if the created booking ID is already in the database
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT * "
+                + "FROM Reservation "
+                + "WHERE idReservation = ?");
+        do {
+            // create a random 6 upper-cased letters string
+            for(int i = 0; i < 6; i++) {
+                randomLetters[i] = (char)((int)'A' + (int)(Math.random()*((int)'Z' - (int)'A')));   
+            }
+            bookingID = new String(randomLetters);
+            // while the bookingID already exists in the database
+            st.setString(1, bookingID);
+            result = st.executeQuery();
+        }while(result.next());
+        
+        // insertion of booking
+        st = connection.prepareStatement(""
+                + "INSERT INTO Reservation "
+                + "VALUES (?, ?, ?, ?, ?, ?)");
+        st.setString(1, bookingID);
+        st.setString(2, booking.getCustomer());
+        st.setTimestamp(3, new java.sql.Timestamp(departureDate.getTime()));
+        st.setFloat(4, booking.getAmount());
+        st.setString(5, departureStation);
+        st.setString(6, arrivalStation);
+        
+        st.executeUpdate();
+        
+        return bookingID;
+    }
 
+     /**
+     * Saving some booked seats into the database
+     *
+     * @param booking
+     * @param departureDate
+     * @param departureStation
+     * @param arrivalStation
+     * 
+     * @return the corresponding booking ID
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private void saveBookedSeats(int trainNumber, List<Seat> bookedSeats, String period, String bookingID)
+        throws SQLException {
+        
+        int seatsNumber = bookedSeats.size();
+        
+        // insertion preparation
+        PreparedStatement st = connection.prepareStatement(""
+                + "INSERT INTO PlaceReservee "
+                + "VALUES (?, ?, ?, ?, ?)");
+        st.setString(2, bookingID);
+        st.setInt(4, trainNumber);
+        st.setString(5, period);
+        
+        // insertions
+        for(int i = 0; i < seatsNumber; i++) {
+            st.setInt(1, bookedSeats.get(i).getSeatNumber());
+            st.setInt(3, bookedSeats.get(i).getCarNumber());
+            
+            st.executeUpdate();
+        }
+    }
+    
     /**
      * See Operation 2.1.4
      *
