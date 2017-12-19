@@ -1,6 +1,15 @@
-DROP DATABASE IF EXISTS ML3;
-CREATE DATABASE ML3;
-USE ML3;
+DROP TABLE IF EXISTS PlaceReservee;
+DROP TABLE IF EXISTS Reservation;
+DROP TABLE IF EXISTS Voiture;
+DROP TABLE IF EXISTS TypeVoiture;
+DROP TABLE IF EXISTS Classe;
+DROP TABLE IF EXISTS Depart;
+DROP TABLE IF EXISTS PlageDates;
+DROP TABLE IF EXISTS Periode;
+DROP TABLE IF EXISTS Train_Segment;
+DROP TABLE IF EXISTS Segment;
+DROP TABLE IF EXISTS Train;
+DROP TABLE IF EXISTS Gare;
 
 CREATE TABLE Gare (
 	nomGare VARCHAR(30),
@@ -9,7 +18,7 @@ CREATE TABLE Gare (
 
 CREATE TABLE Train (
 	numeroTrain INT UNSIGNED,
-    PRIMARY KEY (numeroTrain)
+    PRIMARY KEY (numeroTrain)	
 );
 
 CREATE TABLE Segment (
@@ -28,7 +37,8 @@ CREATE TABLE Train_Segment (
 	vitesse REAL UNSIGNED NOT NULL,						-- En km/h
 	rang INT UNSIGNED NOT NULL,							-- Rang du segment dans le parcourt du train (de 1 au nombre de segments de la ligne)
 	FOREIGN KEY (numeroTrain) REFERENCES Train(numeroTrain) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (gareDepart, gareArrivee) REFERENCES Segment(gareDepart, gareArrivee) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (gareDepart) REFERENCES Gare(nomGare) ON DELETE CASCADE ON UPDATE CASCADE,
+	FOREIGN KEY (gareArrivee) REFERENCES Gare(nomGare) ON DELETE CASCADE ON UPDATE CASCADE,
 	PRIMARY KEY (numeroTrain, gareDepart, gareArrivee)
 );
 
