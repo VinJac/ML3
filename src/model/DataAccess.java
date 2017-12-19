@@ -736,7 +736,7 @@ public class DataAccess {
         char[] randomLetters = new char[6];
         
         // statement in order to check if the created booking ID is already in the database
-        PreparedStatement st = connection.prepareStatement(""
+        PreparedStatement st1 = connection.prepareStatement(""
                 + "SELECT * "
                 + "FROM Reservation "
                 + "WHERE idReservation = ?");
@@ -747,22 +747,22 @@ public class DataAccess {
             }
             bookingID = new String(randomLetters);
             // while the bookingID already exists in the database
-            st.setString(1, bookingID);
-            result = st.executeQuery();
+            st1.setString(1, bookingID);
+            result = st1.executeQuery();
         }while(result.next());
         
         // insertion of booking
-        st = connection.prepareStatement(""
+        PreparedStatement st2 = connection.prepareStatement(""
                 + "INSERT INTO Reservation "
                 + "VALUES (?, ?, ?, ?, ?, ?)");
-        st.setString(1, bookingID);
-        st.setString(2, booking.getCustomer());
-        st.setTimestamp(3, new java.sql.Timestamp(departureDate.getTime()));
-        st.setFloat(4, booking.getAmount());
-        st.setString(5, departureStation);
-        st.setString(6, arrivalStation);
+        st2.setString(1, bookingID);
+        st2.setString(2, booking.getCustomer());
+        st2.setTimestamp(3, new java.sql.Timestamp(departureDate.getTime()));
+        st2.setFloat(4, booking.getAmount());
+        st2.setString(5, departureStation);
+        st2.setString(6, arrivalStation);
         
-        st.executeUpdate();
+        st2.executeUpdate();
         
         return bookingID;
     }
@@ -814,8 +814,100 @@ public class DataAccess {
      */
     public boolean cancelBooking(String bookingID, String customerEmail)
         throws DataAccessException {
-        // TODO
-        return false;
+        
+        // encapsulate data queries into an ACID transaction 
+        try {
+            connection.setAutoCommit(false);
+            connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            
+            // check if the couple bookingID - customerEmail exists
+            if(!isInReservation(bookingID, customerEmail) || seatsNumberWithBooking(bookingID) == 0) {
+                System.out.println("1");
+                return false;                                           // no such booking    
+            }
+            System.out.println("2");
+            
+            // first delete from PlaceReservee because of the foreign key constraints
+            PreparedStatement st = connection.prepareStatement(""
+                    + "DELETE FROM PlaceReservee "
+                    + "WHERE idReservation = ?");
+            st.setString(1, bookingID);
+            st.executeUpdate();         
+            
+            // if we had ON DELETE CASCADE, normally we wouldn't have to do the following
+            // but since we don't know whether the constraint will be respected or not
+            // we decided not to put it
+            st = connection.prepareStatement(""
+                    + "DELETE FROM Reservation "
+                    + "WHERE idReservation = ? ");        // we already checked the email
+            st.setString(1, bookingID);
+            st.executeUpdate();
+            
+            // check if it succeeded
+            if(!isInReservation(bookingID, customerEmail) && seatsNumberWithBooking(bookingID) == 0)
+                return true;
+            else
+                return false;    
+        }
+        catch(SQLException e) {
+            // making sure the transaction is aborted
+            try {
+                connection.rollback();
+            }
+            catch (SQLException ee) {
+                throw new DataAccessException("Failing rollbacking transaction in 2.1.4: " + ee.getMessage());
+            }
+            throw new DataAccessException("Error occured in 2.1.4: " + e.getMessage());
+        }
+    }
+    
+     /**
+     * Tells the number of booked seats registered for this booking ID
+     *
+     * @param bookingID
+     * 
+     * @return the number of booked seats, therefore 0 if none
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private int seatsNumberWithBooking(String bookingID)
+        throws SQLException {
+        
+        // query preparation
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT COUNT(*) "
+                + "FROM PlaceReservee "
+                + "WHERE idReservation = ?");
+        st.setString(1, bookingID);
+        
+        ResultSet result = st.executeQuery();
+        result.next();
+        return (result.getInt(1)); 
+    }
+    
+     /**
+     * Tells if the specified booking is in the "Reservation" table
+     *
+     * @param bookingID
+     * @param customerEmail
+     * 
+     * @return <code>true</code> if the booking is in the table, and
+     * <code>false</code> otherwise
+     *
+     * @throws SQLException if an unrecoverable error occurs
+     */
+    private boolean isInReservation(String bookingID, String customerEmail)
+        throws SQLException {
+        
+        // query preparation
+        PreparedStatement st = connection.prepareStatement(""
+                + "SELECT idReservation "
+                + "FROM Reservation "
+                + "WHERE idReservation = ? AND mailClient = ?");
+        st.setString(1, bookingID);
+        st.setString(2, customerEmail);
+        
+        return (st.executeQuery().next()); 
     }
     
      /**
