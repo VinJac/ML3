@@ -844,10 +844,14 @@ public class DataAccess {
             st.executeUpdate();
             
             // check if it succeeded
-            if(!isInReservation(bookingID, customerEmail) && seatsNumberWithBooking(bookingID) == 0)
+            if(!isInReservation(bookingID, customerEmail) && seatsNumberWithBooking(bookingID) == 0) {
+                connection.commit();
                 return true;
-            else
-                return false;    
+            }    
+            else {
+                connection.commit();
+                return false;
+            }    
         }
         catch(SQLException e) {
             // making sure the transaction is aborted
@@ -1063,7 +1067,7 @@ public class DataAccess {
      * 
      * @throws SQLException if an unrecoverable error occurs
      */
-    public List<Seat> getSeats(Integer train, String period, String travelClass)
+    private List<Seat> getSeats(Integer train, String period, String travelClass)
         throws SQLException {
         
         // the list to return
