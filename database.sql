@@ -1,3 +1,5 @@
+set storage_engine = INNODB;
+
 DROP TABLE IF EXISTS PlaceReservee;
 DROP TABLE IF EXISTS Reservation;
 DROP TABLE IF EXISTS Voiture;
