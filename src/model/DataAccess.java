@@ -648,8 +648,10 @@ public class DataAccess {
             availableSeats = getAvailableSeats(trainNumber, departureDate, departureStation, arrivalStation, tClass); 
             
             // the number of available seats must be greater or equal to the number of people
-            if(availableSeats.size() < passengerCount)
-                return null;
+            if(availableSeats.size() < passengerCount) {
+				connection.commit();
+				return null;
+			}
             
             // period conversion
             Period travelPeriod = null;
@@ -679,6 +681,7 @@ public class DataAccess {
             String bookingID = saveBooking(booking, departureDate, departureStation, arrivalStation);
             saveBookedSeats(trainNumber, bookedSeats, period, bookingID);
             
+			connection.commit();
         }
         catch(SQLException e) {
             // making sure the transaction is aborted
@@ -822,10 +825,9 @@ public class DataAccess {
             
             // check if the couple bookingID - customerEmail exists
             if(!isInReservation(bookingID, customerEmail) || seatsNumberWithBooking(bookingID) == 0) {
-                System.out.println("1");
+                connection.commit();
                 return false;                                           // no such booking    
             }
-            System.out.println("2");
             
             // first delete from PlaceReservee because of the foreign key constraints
             PreparedStatement st = connection.prepareStatement(""
